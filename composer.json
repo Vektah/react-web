@@ -1,5 +1,5 @@
 {
-    "name": "vektah/composer-dist-cache",
+    "name": "vektah/react-web",
     "description": "Caches requests to a central package repository like packagist.",
     "homepage" : "https://github.com/Vektah/composer-dist-cache",
     "license" : "BSD-2-Clause",

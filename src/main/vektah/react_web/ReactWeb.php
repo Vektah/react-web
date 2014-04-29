@@ -17,27 +17,49 @@ class ReactWeb
 {
     private $routes = [];
     private $loop;
+    private $debug;
 
-    public function __construct(LoopContext $loop)
+    public function __construct(LoopContext $loop, $debug = false)
     {
         $this->loop = $loop;
     }
 
-    public function addRoute($route, callable $target)
+    public function addRoute($method, $route, callable $target)
     {
         $route = preg_replace_callback('/\{(?P<part>[a-zA-Z0-9\-_\.]*)\}/', function ($matches) {
-            return "(?P<{$matches['part']}>[a-zA-Z0-9\\-_\\.]*)";
+            return "(?P<{$matches['part']}>[a-zA-Z0-9\\-_\\.@%]*)";
         }, $route);
         $route = str_replace('$', '\$', $route);
-        $this->routes[$route] = $target;
+        $this->routes[$method][$route] = $target;
     }
 
     public function dispatch(Request $request, Response $response)
     {
-        echo $request->getPath()."\n";
-        foreach ($this->routes as $route => $target) {
+        // Todo PSR logging
+        if ($this->debug) {
+            echo date('r') . ": {$request->getPath()}:{$request->getMethod()}\n";
+        }
+
+
+        if (!isset($this->routes[$request->getMethod()])) {
+            $this->completeResponse($response, new PageNotFound());
+            return;
+        }
+
+        $routes = $this->routes[$request->getMethod()];
+
+        foreach ($routes as $route => $target) {
             if (preg_match("|^$route$|", $request->getPath(), $matches)) {
-                $result = call_user_func($target, $matches);
+                foreach ($matches as &$match) {
+                    $match = urldecode($match);
+                }
+
+                try {
+                    $result = call_user_func($target, $matches, $request);
+                } catch (\Exception $e) {
+                    $this->completeResponse($response, new InternalServerError($e));
+                    return;
+                }
 
                 if ($result instanceof PromiseInterface) {
                     $result->then(function ($result) use ($request, $response) {
@@ -58,6 +80,12 @@ class ReactWeb
 
     private function completeResponse(Response $response, $result)
     {
+        // Todo PSR logging
+        if ($this->debug) {
+            echo date('r') . ": -> ";
+            print_r($result);
+        }
+
         if ($result instanceof ControllerResponse) {
             $result->send($response);
         } else {

@@ -22,6 +22,7 @@ class ReactWeb
     public function __construct(LoopContext $loop, $debug = false)
     {
         $this->loop = $loop;
+        $this->debug = $debug;
     }
 
     public function addRoute($method, $route, callable $target)
